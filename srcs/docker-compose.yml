@@ -1,0 +1,134 @@
+services:
+  mariadb:
+    build: ./requirements/mariadb
+    container_name: mariadb
+    image: mariadb
+    env_file: .env
+    secrets:
+      - db_password
+      - db_root_password
+      - credentials
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - docker-network
+    restart: unless-stopped
+  wordpress:
+    build: ./requirements/wordpress
+    container_name: wordpress
+    image: wordpress
+    depends_on:
+      - mariadb
+    env_file: .env
+    secrets:
+      - db_password
+      - db_root_password
+      - credentials
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - docker-network
+    restart: unless-stopped
+  nginx:
+    build: ./requirements/nginx
+    container_name: nginx
+    image: nginx
+    ports:
+      - "443:443"
+    volumes:
+      - wordpress_data:/var/www/html
+    depends_on:
+      - wordpress
+    networks:
+      - docker-network
+    restart: unless-stopped
+  redis:
+    build: ./requirements/bonus/redis
+    container_name: redis
+    image: redis
+    volumes:
+      - wordpress_data:/var/www/html
+    ports:
+      - "6380:6379"
+    networks:
+      - docker-network
+    restart: unless-stopped
+  ftp:
+    build: ./requirements/bonus/ftp
+    container_name: ftp
+    image: ftp
+    ports:
+      - "21:21"
+      - "21100-21110:21100-21110"
+    env_file: .env
+    volumes:
+      - wordpress_data:/var/www/html
+    secrets:
+      - credentials
+    networks:
+      - docker-network
+    restart: unless-stopped
+  mywebsite:
+    build: ./requirements/bonus/static
+    container_name: website
+    image: mywebsite
+    ports:
+      - "5500:5500"
+    networks:
+      - docker-network
+    restart: unless-stopped
+  adminer:
+    build: ./requirements/bonus/adminer
+    container_name: adminer
+    image: adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - docker-network
+    restart: unless-stopped
+  upload:
+    build: ./requirements/bonus/upload
+    container_name: upload
+    image: upload
+    env_file: .env
+    secrets:
+      - db_password
+    ports:
+      - "9443:9443"
+    volumes:
+      - uploaded_data:/uploads
+    networks:
+      - docker-network
+    restart: unless-stopped
+
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  credentials:
+    file: ../secrets/credentials.txt
+
+volumes:
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/hounejja/data/mariadb_data
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/hounejja/data/wordpress_data
+  uploaded_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/hounejja/data/uploaded_data
+
+networks:
+   docker-network:
+     driver: bridge
